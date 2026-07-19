@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Health Simulation Module using Counterfactual Explanation
 Analyzes how changes in lifestyle habits (exercise, sleep, weight) and blood pressure
@@ -7,14 +7,15 @@ impact the 10-year CVD risk percentage, highlighting the top N recommendations.
 
 '''
 [중요 - 모델 한계 명시]
-아래 계수(체중→콜레스테롤/혈압, 운동→HDL/혈압, 수면→혈압 영향)는 
-특정 임상시험 데이터에서 직접 도출된 값이 아니라, 일반적으로 알려진 
-건강관리 경향성에 기반해 단순화한 선형 근사 모델이다. 
-이는 개념 실증(proof-of-concept) 목적의 근사치이며, 정밀한 의학적 
-예측치로 해석되어서는 안 된다. 각 계수 옆에 근거가 될 수 있는 
-일반적 참고 자료 출처를 주석으로 남긴다 (예: 대한고혈압학회, AHA 
-Lifestyle Modification 가이드라인 등 일반적으로 공개된 자료명).
+아래 계수(체중→콜레스테롤/혈압, 운동→HDL/혈압, 수면→혈압 영향) 중 
+체중→혈압 관계는 AHA/ACC 2025 가이드라인 및 관련 메타분석에서 확인된 
+수치를 보수적으로 반영하였다. 나머지 계수(체중→콜레스테롤, 운동→HDL, 
+수면→혈압)는 방향성과 대략적인 크기는 문헌에서 확인되나, 본 모델에서 
+사용한 "주당/1kg당 선형 비례" 형태의 정확한 수치를 직접 제시하는 
+단일 문헌은 확인하지 못했다. 이는 개념 실증(proof-of-concept) 목적의 
+근사 모델이며, 정밀한 의학적 예측치로 해석되어서는 안 된다.
 '''
+
 
 import itertools
 import logging
@@ -41,17 +42,17 @@ def _evaluate_single_combination(
     개별 생활습관 조합에 대한 가상 환자 정보 업데이트 및 위험도 개선율을 평가합니다.
     """
     # A. 체중 변화가 콜레스테롤과 혈압에 미치는 영향
-    tc_impact_weight = weight_chg * 1.5   # 근사치, 근거: 대한고혈압학회 및 AHA Lifestyle Modification 가이드라인의 일반적 경향
-    sbp_impact_weight = weight_chg * 0.5  # 근사치, 근거: 대한고혈압학회 및 AHA Lifestyle Modification 가이드라인의 일반적 경향
+    tc_impact_weight = weight_chg * 1.5   # 근거: 체중감량과 콜레스테롤 개선의 전반적 연관성은 다수 문헌에서 확인되나(예: 5-10% 체중감량 시 개선), 1kg당 정량적 수치를 제시하는 문헌은 확인하지 못함. 임상적으로 알려진 일반 경향에 기반한 근사치 (특정 논문 수치 아님).
+    sbp_impact_weight = weight_chg * 0.5  # 근거: AHA/ACC 2025 고혈압 가이드라인 및 Neter et al. (Hypertension, 2003) 메타분석은 체중 1kg 감량당 약 1.0mmHg의 수축기혈압 감소를 보고함. 본 모델은 보수적 추정을 위해 0.5mmHg로 설정함 (원 문헌 수치의 약 절반).
     
     # B. 운동 횟수 변화가 HDL 및 혈압에 미치는 영향
     exec_diff = exec_val - orig_exercise
-    hdl_impact_exec = exec_diff * 1.0     # 근사치, 근거: 임상적으로 알려진 일반 경향에 기반한 근사치 (특정 논문 수치 아님)
-    sbp_impact_exec = exec_diff * -0.8    # 근사치, 근거: 임상적으로 알려진 일반 경향에 기반한 근사치 (특정 논문 수치 아님)
+    hdl_impact_exec = exec_diff * 1.0     # 근거: AHA(2021) 신체활동 권고 발표는 신체활동 증가 시 HDL +1~2mg/dL, 수축기혈압 -3~4mmHg의 전반적 효과를 보고함. 본 모델은 이를 주당 운동 횟수에 비례하는 선형 근사로 단순화하였으며, 원 문헌은 '주당 1회 증가'를 직접 규정하지 않음에 유의.
+    sbp_impact_exec = exec_diff * -0.8    # 근거: AHA(2021) 신체활동 권고 발표는 신체활동 증가 시 HDL +1~2mg/dL, 수축기혈압 -3~4mmHg의 전반적 효과를 보고함. 본 모델은 이를 주당 운동 횟수에 비례하는 선형 근사로 단순화하였으며, 원 문헌은 '주당 1회 증가'를 직접 규정하지 않음에 유의.
     
     # C. 수면 시간 변화가 혈압에 미치는 영향
     sleep_diff = sleep_val - orig_sleep
-    sbp_impact_sleep = sleep_diff * -0.5  # 근사치, 근거: 임상적으로 알려진 일반 경향에 기반한 근사치 (특정 논문 수치 아님)
+    sbp_impact_sleep = sleep_diff * -0.5  # 근거: 수면시간과 혈압의 연관성은 다수 문헌에서 확인되나 (예: 수면 1시간 증가당 고혈압 위험 감소 경향), 연구 간 수치 편차가 커서 단일 확정 수치를 제시하기 어려움. 임상적으로 알려진 일반 경향에 기반한 근사치.
     
     # 생리학적 하한선 적용
     new_tc = max(100.0, orig_tc + tc_impact_weight)
