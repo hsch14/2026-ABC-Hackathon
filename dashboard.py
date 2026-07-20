@@ -32,50 +32,47 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# UI 개선: 목표 생활습관 Python dict를 사람 언어 불렛 문구로 가공하는 헬퍼 함수
+# UI 개선: 변경된 항목만 추출하여 사용자 친화적 불렛 문자열로 가공하는 헬퍼 함수
 def format_lifestyle_changes(changes: dict, user_data: dict) -> str:
     """
-    Python dict(changes)를 사용자가 직관적으로 이해할 수 있는 한글 불렛 목록으로 변환합니다.
+    원래 값과 차이가 있는 '실천해야 할 변화 항목만' 추출하여 불렛 문자열로 변환합니다.
     """
-    # UI 개선: 내부 키 유출 방지 및 직관적 불렛 문구 생성
+    # UI 개선: 변화(Change)가 존재하는 항목만 정제 노출
     items = []
+    
+    # 1. 금연 (현재 흡연자가 비흡연으로 변경된 경우만)
     orig_smoker = bool(user_data.get("smoker", False))
     new_smoker = bool(changes.get("smoker", orig_smoker))
-    
-    # 금연 여부
     if orig_smoker and not new_smoker:
         items.append("• <b>금연</b>")
         
-    # 체중 변화
+    # 2. 체중 감량/증가 (변화량이 0이 아닌 경우만)
     w_chg = changes.get("weight_change_kg", 0)
     if w_chg < 0:
         items.append(f"• 체중 <b>{abs(w_chg)}kg 감량</b>")
     elif w_chg > 0:
         items.append(f"• 체중 <b>{w_chg}kg 증가</b>")
         
-    # 수축기 혈압 변화
+    # 3. 수축기 혈압 감소 (변화량이 0이 아닌 경우만)
     sbp_chg = changes.get("systolic_bp_change", 0)
     if sbp_chg < 0:
         items.append(f"• 수축기 혈압 <b>{abs(sbp_chg)}mmHg 감소</b>")
         
-    # 운동 횟수
+    # 4. 운동 횟수 (원래 운동 횟수와 다른 경우만)
     exec_val = changes.get("exercise_per_week")
     orig_exec = user_data.get("exercise_per_week")
-    if exec_val is not None:
-        if exec_val != orig_exec:
-            items.append(f"• 운동 <b>주 {exec_val}회</b>로 변경")
+    if exec_val is not None and exec_val != orig_exec:
+        if exec_val > orig_exec:
+            items.append(f"• 운동 <b>주 {exec_val}회로 늘리기</b>")
         else:
-            items.append(f"• 운동 <b>주 {exec_val}회</b> 유지")
+            items.append(f"• 운동 <b>주 {exec_val}회로 조정</b>")
             
-    # 수면 시간
+    # 5. 수면 시간 (원래 수면 시간과 다른 경우만)
     sleep_val = changes.get("sleep_hours")
     orig_sleep = user_data.get("sleep_hours")
-    if sleep_val is not None:
-        if sleep_val != orig_sleep:
-            items.append(f"• 평균 수면 <b>하루 {sleep_val}시간</b>으로 조절")
-        else:
-            items.append(f"• 평균 수면 <b>하루 {sleep_val}시간</b> 유지")
-            
+    if sleep_val is not None and sleep_val != orig_sleep:
+        items.append(f"• 수면 <b>하루 {sleep_val}시간으로 조절</b>")
+        
     if not items:
         return "• 현재 생활습관 유지"
         
@@ -265,9 +262,9 @@ with tab1:
     with col_right:
         # UI 개선: Counterfactual 제목 변경 및 일반 사용자 친화적 부제목 처리
         st.markdown("#### 🌟 최적 예방 시나리오 TOP 3")
-        st.markdown("<p style='font-size: 12px; color: #7f8c8d; margin-top: -10px; margin-bottom: 15px;'>Counterfactual Scenario Analysis</p>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size: 12px; color: #7f8c8d; margin-top: -10px; margin-bottom: 12px;'>Counterfactual Scenario Analysis</p>", unsafe_allow_html=True)
         
-        # 1,2,3위 최적 추천 카드를 미려하게 시각화
+        # 1,2,3위 최적 추천 카드를 미려하고 컴팩트하게 시각화
         for idx, rec in enumerate(sim_recommendations, 1):
             border_style = "border: 1px solid #e2e8f0;"
             highlight_tag = ""
@@ -281,7 +278,7 @@ with tab1:
             else:
                 rec_type_tag = "<span style='background-color: #E91E6311; color: #E91E63; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-right: 6px;'>복합 요인 개선</span>"
                 
-            # UI 개선: Python dict 파싱하여 깔끔한 한글 불렛으로 가공
+            # UI 개선: 변화가 있는 항목만 추출하여 한글 불렛으로 가공 (동일값 제거)
             formatted_lifestyle_text = format_lifestyle_changes(rec['changes'], patient_data)
             
             # UI 개선: 퍼센트포인트(%p) 기호 명시
@@ -290,20 +287,17 @@ with tab1:
             # 극단적 케이스 노트 처리
             note_tag = ""
             if "note" in rec:
-                note_tag = f"<p style='color: #e74c3c; font-size: 11.5px; margin-top: 5px;'>* {rec['note']}</p>"
+                note_tag = f"<p style='color: #e74c3c; font-size: 11.5px; margin-top: 5px; margin-bottom: 0;'>* {rec['note']}</p>"
                 
-            # UI 개선: Card 간 여백 및 줄간격 정돈
+            # UI 개선: 카드 높이 축소, 회색 박스 제거, "실천해야 할 변화" 명시 및 여백 컴팩트화
             st.markdown(
-                f"<div style='border-radius: 12px; padding: 18px; margin-bottom: 16px; {border_style} box-shadow: 0 2px 4px rgba(0,0,0,0.03);'>"
-                f"<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>"
+                f"<div style='border-radius: 12px; padding: 14px 18px; margin-bottom: 12px; {border_style} box-shadow: 0 2px 4px rgba(0,0,0,0.03);'>"
+                f"<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;'>"
                 f"<h5 style='margin: 0; color: #2d3748;'>{highlight_tag}{rec_type_tag}<b>{idx}순위 개선 대안</b></h5>"
                 f"<span style='color: #2ecc71; font-weight: bold; font-size: 14.5px;'>{improvement_str}</span>"
                 f"</div>"
-                f"<p style='color: #4a5568; font-size: 14px; margin: 8px 0 10px 0; line-height: 1.5;'><b>핵심 조치:</b> {rec['improvement_summary']}</p>"
-                f"<div style='background-color: #f8f9fa; padding: 12px 15px; border-radius: 8px; margin-top: 8px; border-left: 3px solid #cbd5e0;'>"
-                f"<p style='color: #2d3748; font-size: 13px; font-weight: bold; margin: 0 0 5px 0;'>목표 생활습관</p>"
-                f"<p style='color: #4a5568; font-size: 13px; margin: 0; line-height: 1.6;'>{formatted_lifestyle_text}</p>"
-                f"</div>"
+                f"<p style='color: #2d3748; font-size: 13px; font-weight: bold; margin: 6px 0 4px 0;'>실천해야 할 변화</p>"
+                f"<p style='color: #4a5568; font-size: 13.5px; margin: 0; line-height: 1.6;'>{formatted_lifestyle_text}</p>"
                 f"{note_tag}"
                 f"</div>",
                 unsafe_allow_html=True
