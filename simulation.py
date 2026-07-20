@@ -1,8 +1,8 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Health Simulation Module using Counterfactual Explanation
-Analyzes how changes in lifestyle habits (exercise, sleep, weight) and blood pressure
-impact the 10-year CVD risk percentage, highlighting the top N recommendations.
+Analyzes how changes in lifestyle habits (exercise, sleep, weight), blood pressure,
+and smoking cessation impact the 10-year CVD risk percentage, highlighting the top N recommendations.
 """
 
 '''
@@ -15,7 +15,6 @@ impact the 10-year CVD risk percentage, highlighting the top N recommendations.
 단일 문헌은 확인하지 못했다. 이는 개념 실증(proof-of-concept) 목적의 
 근사 모델이며, 정밀한 의학적 예측치로 해석되어서는 안 된다.
 '''
-
 
 import itertools
 import logging
@@ -32,11 +31,13 @@ def _evaluate_single_combination(
     sleep_val: int,
     weight_chg: int,
     sbp_chg: int,
+    smoker_val: bool,
     orig_exercise: int,
     orig_sleep: int,
     orig_tc: float,
     orig_hdl: float,
-    orig_sbp: float
+    orig_sbp: float,
+    orig_smoker: bool
 ) -> dict:
     """
     개별 생활습관 조합에 대한 가상 환자 정보 업데이트 및 위험도 개선율을 평가합니다.
@@ -67,6 +68,7 @@ def _evaluate_single_combination(
     sim_user_data["systolic_bp"] = new_sbp
     sim_user_data["exercise_per_week"] = exec_val
     sim_user_data["sleep_hours"] = sleep_val
+    sim_user_data["smoker"] = smoker_val
     
     new_risks = calculate_multiple_risks(sim_user_data)
     new_risk_pct = new_risks["cardiovascular_10y"]["risk_percent"]
@@ -74,6 +76,11 @@ def _evaluate_single_combination(
     
     # 요약 메시지 생성
     summary_parts = []
+    
+    # 흡연 변화 요약 (금연 시나리오)
+    if orig_smoker and not smoker_val:
+        summary_parts.append("금연")
+
     if weight_chg < 0:
         summary_parts.append(f"체중 {abs(weight_chg)}kg 감량")
     elif weight_chg > 0:
@@ -102,7 +109,8 @@ def _evaluate_single_combination(
             "exercise_per_week": exec_val,
             "sleep_hours": sleep_val,
             "weight_change_kg": weight_chg,
-            "systolic_bp_change": sbp_chg
+            "systolic_bp_change": sbp_chg,
+            "smoker": smoker_val
         },
         "new_risks": new_risks,
         "improvement_percent": round(improvement, 1),
@@ -134,6 +142,7 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
     orig_tc = user_data.get("total_cholesterol", 200.0)
     orig_hdl = user_data.get("hdl", 50.0)
     orig_sbp = user_data.get("systolic_bp", 120.0)
+    orig_smoker = bool(user_data.get("smoker", False))
     
     # 기본 위험도 계산
     base_risks = calculate_multiple_risks(user_data)
@@ -144,6 +153,7 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
     sleep_options = range(5, 9)               # 5~8시간
     weight_change_options = range(-10, 4, 1)  # -10kg ~ +3kg
     sbp_change_options = range(-20, 1, 5)     # -20 ~ 0 mmHg
+    smoker_options = [True, False] if orig_smoker else [False]  # 흡연자인 경우 금연 시나리오 포함
     
     # 제약 사항에 따른 탐색 범위 조정
     if user_constraint == NO_EXERCISE:
@@ -163,12 +173,12 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
             if exec_val == orig_exercise:
                 continue
             res = _evaluate_single_combination(
-                user_data, base_risk_pct, exec_val, orig_sleep, 0, 0,
-                orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp
+                user_data, base_risk_pct, exec_val, orig_sleep, 0, 0, orig_smoker,
+                orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp, orig_smoker
             )
             if local_best is None or res["improvement_percent"] > local_best["improvement_percent"]:
                 local_best = res
-        if local_best and local_best["improvement_percent"] > 0:
+        if local_best:
             local_best["recommendation_type"] = "single_lever"
             single_lever_candidates.append(local_best)
             
@@ -178,12 +188,12 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
         if weight_chg == 0:
             continue
         res = _evaluate_single_combination(
-            user_data, base_risk_pct, orig_exercise, orig_sleep, weight_chg, 0,
-            orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp
+            user_data, base_risk_pct, orig_exercise, orig_sleep, weight_chg, 0, orig_smoker,
+            orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp, orig_smoker
         )
         if local_best is None or res["improvement_percent"] > local_best["improvement_percent"]:
             local_best = res
-    if local_best and local_best["improvement_percent"] > 0:
+    if local_best:
         local_best["recommendation_type"] = "single_lever"
         single_lever_candidates.append(local_best)
         
@@ -194,12 +204,12 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
             if sleep_val == orig_sleep:
                 continue
             res = _evaluate_single_combination(
-                user_data, base_risk_pct, orig_exercise, sleep_val, 0, 0,
-                orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp
+                user_data, base_risk_pct, orig_exercise, sleep_val, 0, 0, orig_smoker,
+                orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp, orig_smoker
             )
             if local_best is None or res["improvement_percent"] > local_best["improvement_percent"]:
                 local_best = res
-        if local_best and local_best["improvement_percent"] > 0:
+        if local_best:
             local_best["recommendation_type"] = "single_lever"
             single_lever_candidates.append(local_best)
             
@@ -209,41 +219,55 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
         if sbp_chg == 0:
             continue
         res = _evaluate_single_combination(
-            user_data, base_risk_pct, orig_exercise, orig_sleep, 0, sbp_chg,
-            orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp
+            user_data, base_risk_pct, orig_exercise, orig_sleep, 0, sbp_chg, orig_smoker,
+            orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp, orig_smoker
         )
         if local_best is None or res["improvement_percent"] > local_best["improvement_percent"]:
             local_best = res
-    if local_best and local_best["improvement_percent"] > 0:
+    if local_best:
         local_best["recommendation_type"] = "single_lever"
         single_lever_candidates.append(local_best)
+
+    # (5) 금연만 변화 (사용자가 흡연자인 경우)
+    if orig_smoker:
+        res_quit = _evaluate_single_combination(
+            user_data, base_risk_pct, orig_exercise, orig_sleep, 0, 0, False,
+            orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp, orig_smoker
+        )
+        res_quit["recommendation_type"] = "single_lever"
+        single_lever_candidates.append(res_quit)
         
     # 단일 레버 후보군 정렬 (개선율 내림차순)
     single_lever_candidates.sort(key=lambda x: x["improvement_percent"], reverse=True)
     
     # --- 2단계: 종합 개선안(Combined) 계산 ---
-    # 전체 조합을 탐색하되, 속도가 느리다고 체감될 경우 functools.lru_cache 등의 캐싱을 호출부에 적용하는 것을 설계 고려 가능함.
-    combined_candidates = []
-    for exec_val, sleep_val, weight_chg, sbp_chg in itertools.product(
-        exercise_options, sleep_options, weight_change_options, sbp_change_options
+    all_combined_candidates = []
+    positive_combined_candidates = []
+    
+    for exec_val, sleep_val, weight_chg, sbp_chg, smoker_val in itertools.product(
+        exercise_options, sleep_options, weight_change_options, sbp_change_options, smoker_options
     ):
         # 모든 변수가 원래 값인 케이스 제외
-        if exec_val == orig_exercise and sleep_val == orig_sleep and weight_chg == 0 and sbp_chg == 0:
+        if (exec_val == orig_exercise and sleep_val == orig_sleep and 
+            weight_chg == 0 and sbp_chg == 0 and smoker_val == orig_smoker):
             continue
             
         res = _evaluate_single_combination(
-            user_data, base_risk_pct, exec_val, sleep_val, weight_chg, sbp_chg,
-            orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp
+            user_data, base_risk_pct, exec_val, sleep_val, weight_chg, sbp_chg, smoker_val,
+            orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp, orig_smoker
         )
+        res["recommendation_type"] = "combined"
+        all_combined_candidates.append(res)
         if res["improvement_percent"] > 0:
-            res["recommendation_type"] = "combined"
-            combined_candidates.append(res)
+            positive_combined_candidates.append(res)
             
-    # 개선율 내림차순 정렬
-    combined_candidates.sort(key=lambda x: x["improvement_percent"], reverse=True)
+    # 정렬
+    all_combined_candidates.sort(key=lambda x: x["improvement_percent"], reverse=True)
+    positive_combined_candidates.sort(key=lambda x: x["improvement_percent"], reverse=True)
     
-    # --- 3단계: 최종 병합 및 다양성 기반 추출 ---
-    # 비례 산출 (단일 레버 대 종합 대안 비율 ≈ 2:1)
+    # --- 3단계: 양의 개선율(improvement_percent > 0) 후보군 위주 추출 ---
+    positive_single_levers = [c for c in single_lever_candidates if c["improvement_percent"] > 0]
+    
     n_single = round(top_n * 2 / 3)
     n_combined = top_n - n_single
     
@@ -256,9 +280,9 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
                 return True
         return False
         
-    # (1) 단일 레버 추천 확보
+    # (1) 양의 개선율 단일 레버 추천 확보
     single_added = 0
-    for cand in single_lever_candidates:
+    for cand in positive_single_levers:
         if single_added >= n_single:
             break
         if not _is_duplicate(cand["changes"], used_changes):
@@ -266,9 +290,9 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
             used_changes.append(cand["changes"])
             single_added += 1
             
-    # (2) 종합 개선안 추천 확보
+    # (2) 양의 개선율 종합 개선안 추천 확보
     combined_added = 0
-    for cand in combined_candidates:
+    for cand in positive_combined_candidates:
         if combined_added >= n_combined:
             break
         if not _is_duplicate(cand["changes"], used_changes):
@@ -276,21 +300,36 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
             used_changes.append(cand["changes"])
             combined_added += 1
             
-    # (3) 중복 제거 등으로 인해 개수가 모자란 경우 후순위 보충
-    # 먼저 단일 레버에서 보충
-    for cand in single_lever_candidates:
+    # (3) 부족분 보충 (양의 개선율 내에서 우선)
+    for cand in positive_single_levers:
         if len(final_recommendations) >= top_n:
             break
         if not _is_duplicate(cand["changes"], used_changes):
             final_recommendations.append(cand)
             used_changes.append(cand["changes"])
             
-    # 그 다음 종합 개선안에서 보충
-    for cand in combined_candidates:
+    for cand in positive_combined_candidates:
         if len(final_recommendations) >= top_n:
             break
         if not _is_duplicate(cand["changes"], used_changes):
             final_recommendations.append(cand)
             used_changes.append(cand["changes"])
             
+    # --- 4단계: 극단적 고위험군 안전장치 (수정 4) ---
+    # 개선율이 0 초과인 조합이 부족하거나 아예 없더라도 빈 배열을 반환하지 않음
+    if len(final_recommendations) < top_n:
+        # 전체 후보(단일 레버 전체 + 종합 대안 전체)를 개선율 내림차순으로 통합
+        all_candidates = single_lever_candidates + all_combined_candidates
+        all_candidates.sort(key=lambda x: x["improvement_percent"], reverse=True)
+        
+        for cand in all_candidates:
+            if len(final_recommendations) >= top_n:
+                break
+            if not _is_duplicate(cand["changes"], used_changes):
+                # 개선율이 0 이하인 경우 안전장치 노트 추가
+                if cand["improvement_percent"] <= 0:
+                    cand["note"] = "이미 위험 요인이 높아 추가 개선 효과가 제한적일 수 있습니다"
+                final_recommendations.append(cand)
+                used_changes.append(cand["changes"])
+                
     return final_recommendations[:top_n]
