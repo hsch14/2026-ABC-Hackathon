@@ -281,23 +281,24 @@ with tab1:
             # UI 개선: 변화가 있는 항목만 추출하여 한글 불렛으로 가공 (동일값 제거)
             formatted_lifestyle_text = format_lifestyle_changes(rec['changes'], patient_data)
             
-            # UI 개선: 퍼센트포인트(%p) 기호 명시
-            improvement_str = f"약 {rec['improvement_percent']}%p 감소"
+            # UI 개선: 현재 위험도 -> 개선 후 위험도 (약 X.X%p 감소) 수치 표시
+            new_risk_pct = rec['new_risks']['cardiovascular_10y']['risk_percent']
+            improvement_str = f"{base_risk['risk_percent']}% → {new_risk_pct}% (약 {rec['improvement_percent']}%p 감소)"
             
             # 극단적 케이스 노트 처리
             note_tag = ""
             if "note" in rec:
                 note_tag = f"<p style='color: #e74c3c; font-size: 11.5px; margin-top: 5px; margin-bottom: 0;'>* {rec['note']}</p>"
                 
-            # UI 개선: 카드 높이 축소, 회색 박스 제거, "실천해야 할 변화" 명시 및 여백 컴팩트화
+            # UI 개선: line-height: 1.8 로 넓히고 가독성 극대화
             st.markdown(
-                f"<div style='border-radius: 12px; padding: 14px 18px; margin-bottom: 12px; {border_style} box-shadow: 0 2px 4px rgba(0,0,0,0.03);'>"
+                f"<div style='border-radius: 12px; padding: 14px 18px; margin-bottom: 14px; {border_style} box-shadow: 0 2px 4px rgba(0,0,0,0.03);'>"
                 f"<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;'>"
                 f"<h5 style='margin: 0; color: #2d3748;'>{highlight_tag}{rec_type_tag}<b>{idx}순위 개선 대안</b></h5>"
-                f"<span style='color: #2ecc71; font-weight: bold; font-size: 14.5px;'>{improvement_str}</span>"
+                f"<span style='color: #2ecc71; font-weight: bold; font-size: 13.5px;'>{improvement_str}</span>"
                 f"</div>"
                 f"<p style='color: #2d3748; font-size: 13px; font-weight: bold; margin: 6px 0 4px 0;'>실천해야 할 변화</p>"
-                f"<p style='color: #4a5568; font-size: 13.5px; margin: 0; line-height: 1.6;'>{formatted_lifestyle_text}</p>"
+                f"<p style='color: #4a5568; font-size: 13.5px; margin: 0; line-height: 1.8;'>{formatted_lifestyle_text}</p>"
                 f"{note_tag}"
                 f"</div>",
                 unsafe_allow_html=True
