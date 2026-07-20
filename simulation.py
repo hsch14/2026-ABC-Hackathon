@@ -1,8 +1,8 @@
 ﻿# -*- coding: utf-8 -*-
 """
 Health Simulation Module using Counterfactual Explanation
-Analyzes how changes in lifestyle habits (exercise, sleep, weight), blood pressure,
-and smoking cessation impact the 10-year CVD risk percentage, highlighting the top N recommendations.
+Analyzes how changes in lifestyle habits (exercise, sleep, weight) and blood pressure
+impact the 10-year CVD risk percentage, highlighting the top N recommendations.
 """
 
 '''
@@ -31,16 +31,15 @@ def _evaluate_single_combination(
     sleep_val: int,
     weight_chg: int,
     sbp_chg: int,
-    smoker_val: bool,
     orig_exercise: int,
     orig_sleep: int,
     orig_tc: float,
     orig_hdl: float,
-    orig_sbp: float,
-    orig_smoker: bool
+    orig_sbp: float
 ) -> dict:
     """
     개별 생활습관 조합에 대한 가상 환자 정보 업데이트 및 위험도 개선율을 평가합니다.
+    (smoker는 환자 입력 고정 변수이므로 탐색 변수에서 완전 제외)
     """
     # A. 체중 변화가 콜레스테롤과 혈압에 미치는 영향
     tc_impact_weight = weight_chg * 1.5   # 근거: 체중감량과 콜레스테롤 개선의 전반적 연관성은 다수 문헌에서 확인되나(예: 5-10% 체중감량 시 개선), 1kg당 정량적 수치를 제시하는 문헌은 확인하지 못함. 임상적으로 알려진 일반 경향에 기반한 근사치 (특정 논문 수치 아님).
@@ -68,7 +67,6 @@ def _evaluate_single_combination(
     sim_user_data["systolic_bp"] = new_sbp
     sim_user_data["exercise_per_week"] = exec_val
     sim_user_data["sleep_hours"] = sleep_val
-    sim_user_data["smoker"] = smoker_val
     
     new_risks = calculate_multiple_risks(sim_user_data)
     new_risk_pct = new_risks["cardiovascular_10y"]["risk_percent"]
@@ -76,10 +74,6 @@ def _evaluate_single_combination(
     
     # 요약 메시지 생성
     summary_parts = []
-    
-    # 흡연 변화 요약 (금연 시나리오)
-    if orig_smoker and not smoker_val:
-        summary_parts.append("금연")
 
     if weight_chg < 0:
         summary_parts.append(f"체중 {abs(weight_chg)}kg 감량")
@@ -109,63 +103,20 @@ def _evaluate_single_combination(
             "exercise_per_week": exec_val,
             "sleep_hours": sleep_val,
             "weight_change_kg": weight_chg,
-            "systolic_bp_change": sbp_chg,
-            "smoker": smoker_val
+            "systolic_bp_change": sbp_chg
         },
         "new_risks": new_risks,
         "improvement_percent": round(improvement, 1),
         "improvement_summary": summary_str
     }
 
-def _are_recommendations_similar(c1: dict, c2: dict) -> bool:
-    """
-    추천 다양성 판단 함수:
-    두 추천 조합(c1, c2)의 5개 핵심 변수(체중, 혈압, 운동, 수면, 금연)를 비교하여,
-    미세 수치만 동일한 유사/중복 추천인지를 엄격하게 판정합니다.
-    """
-    ch1 = c1.get("changes", {})
-    ch2 = c2.get("changes", {})
-    
-    t1 = c1.get("recommendation_type")
-    t2 = c2.get("recommendation_type")
-    
-    # 단일 레버(single_lever)끼리의 비교인 경우:
-    # 변경된 타겟 변수가 다르면(예: 하나는 혈압만 -20, 하나는 체중만 -10) 서로 다른 주 전략이므로 유사하지 않음.
-    if t1 == "single_lever" and t2 == "single_lever":
-        keys1 = {k for k, v in ch1.items() if (k == "weight_change_kg" and v != 0) or (k == "systolic_bp_change" and v != 0) or (k == "exercise_per_week" and v != c1.get("_orig_exercise")) or (k == "sleep_hours" and v != c1.get("_orig_sleep")) or (k == "smoker" and v is False)}
-        keys2 = {k for k, v in ch2.items() if (k == "weight_change_kg" and v != 0) or (k == "systolic_bp_change" and v != 0) or (k == "exercise_per_week" and v != c2.get("_orig_exercise")) or (k == "sleep_hours" and v != c2.get("_orig_sleep")) or (k == "smoker" and v is False)}
-        if keys1 and keys2 and keys1 != keys2:
-            return False
-
-    # 1. 체중 변화 차이 (2kg 이내 미세 차이면 유사)
-    w1, w2 = ch1.get("weight_change_kg", 0), ch2.get("weight_change_kg", 0)
-    w_same = abs(w1 - w2) <= 2
-    
-    # 2. 혈압 변화 차이 (5mmHg 이내 미세 차이면 유사)
-    sbp1, sbp2 = ch1.get("systolic_bp_change", 0), ch2.get("systolic_bp_change", 0)
-    sbp_same = abs(sbp1 - sbp2) <= 5
-    
-    # 3. 운동 횟수 차이
-    ex1, ex2 = ch1.get("exercise_per_week"), ch2.get("exercise_per_week")
-    ex_same = (ex1 == ex2)
-    
-    # 4. 수면 시간 차이
-    sl1, sl2 = ch1.get("sleep_hours"), ch2.get("sleep_hours")
-    sl_same = (sl1 == sl2)
-    
-    # 5. 금연 여부
-    sm1, sm2 = ch1.get("smoker"), ch2.get("smoker")
-    sm_same = (sm1 == sm2)
-    
-    same_count = sum([w_same, sbp_same, ex_same, sl_same, sm_same])
-    
-    # 5개 변수 중 4개 이상이 거의 동일하여 미세한 수치 차이에 불과한 경우 유사 추천으로 정화
-    return same_count >= 4
-
 def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: str = None) -> list:
     """
-    사용자의 건강 지표 및 생활습관 가상 시뮬레이션을 수행하여
-    다양성 로직(단일 레버 2개 + 복합 개선안 1개, 변수 2개 이상 차이 필수)을 바탕으로 상위 N개 추천을 반환합니다.
+    Counterfactual 추천 알고리즘:
+    - Top1: 전체 탐색 조합 중 위험도 감소가 가장 큰 최적 종합 개선안
+    - Top2: Top1에서 사용하지 않은 미사용 레버 단일 추천 중 가장 효과가 큰 항목
+    - Top3: Top1과 Top2에서 모두 사용하지 않은 남은 레버 단일 추천 중 가장 효과가 큰 항목
+    (smoker는 탐색 변수에서 전면 제외되며 changes에는 오직 4개 키만 존재)
     """
     
     # 1. 제약 조건 입력 유효성 검사 및 정비
@@ -179,18 +130,16 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
     orig_tc = user_data.get("total_cholesterol", 200.0)
     orig_hdl = user_data.get("hdl", 50.0)
     orig_sbp = user_data.get("systolic_bp", 120.0)
-    orig_smoker = bool(user_data.get("smoker", False))
     
     # 기본 위험도 계산
     base_risks = calculate_multiple_risks(user_data)
     base_risk_pct = base_risks["cardiovascular_10y"]["risk_percent"]
     
-    # 탐색 변수 기본값 범위
+    # 탐색 변수 기본값 범위 (운동, 수면, 체중, 혈압 4개뿐!)
     exercise_options = range(1, 6)            # 1~5회
     sleep_options = range(5, 9)               # 5~8시간
     weight_change_options = range(-10, 4, 1)  # -10kg ~ +3kg
     sbp_change_options = range(-20, 1, 5)     # -20 ~ 0 mmHg
-    smoker_options = [True, False] if orig_smoker else [False]  # 흡연자인 경우 금연 시나리오 포함
     
     # 제약 사항에 따른 탐색 범위 조정
     if user_constraint == NO_EXERCISE:
@@ -200,8 +149,10 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
     elif user_constraint == DIET_ONLY:
         weight_change_options = range(-5, 4, 1)  # 체중감량의 하한을 -5kg로 제한
         
-    # --- 1단계: 단일 레버(Single Lever) 추천 계산 ---
-    single_lever_candidates = []
+    CATEGORIES = ["exercise", "weight", "sleep", "sbp"]
+    
+    # --- 1. 각 카테고리별 최고의 단일 레버(Single Lever) 탐색 ---
+    single_lever_dict = {}
     
     # (1) 운동만 변화
     if user_constraint != NO_EXERCISE:
@@ -210,34 +161,32 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
             if exec_val == orig_exercise:
                 continue
             res = _evaluate_single_combination(
-                user_data, base_risk_pct, exec_val, orig_sleep, 0, 0, orig_smoker,
-                orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp, orig_smoker
+                user_data, base_risk_pct, exec_val, orig_sleep, 0, 0,
+                orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp
             )
-            if local_best is None or res["improvement_percent"] > local_best["improvement_percent"]:
+            if local_best is None or res["improvement_percent"] > local_best["improvement_percent"] or (res["improvement_percent"] == local_best["improvement_percent"] and exec_val > local_best["changes"]["exercise_per_week"]):
                 local_best = res
         if local_best:
             local_best["recommendation_type"] = "single_lever"
-            local_best["_orig_exercise"] = orig_exercise
-            local_best["_orig_sleep"] = orig_sleep
-            single_lever_candidates.append(local_best)
-            
+            local_best["category"] = "exercise"
+            single_lever_dict["exercise"] = local_best
+
     # (2) 체중만 변화
     local_best = None
     for weight_chg in weight_change_options:
         if weight_chg == 0:
             continue
         res = _evaluate_single_combination(
-            user_data, base_risk_pct, orig_exercise, orig_sleep, weight_chg, 0, orig_smoker,
-            orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp, orig_smoker
+            user_data, base_risk_pct, orig_exercise, orig_sleep, weight_chg, 0,
+            orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp
         )
-        if local_best is None or res["improvement_percent"] > local_best["improvement_percent"]:
+        if local_best is None or res["improvement_percent"] > local_best["improvement_percent"] or (res["improvement_percent"] == local_best["improvement_percent"] and weight_chg < local_best["changes"]["weight_change_kg"]):
             local_best = res
     if local_best:
         local_best["recommendation_type"] = "single_lever"
-        local_best["_orig_exercise"] = orig_exercise
-        local_best["_orig_sleep"] = orig_sleep
-        single_lever_candidates.append(local_best)
-        
+        local_best["category"] = "weight"
+        single_lever_dict["weight"] = local_best
+
     # (3) 수면만 변화
     if user_constraint != NO_TIME_FOR_SLEEP:
         local_best = None
@@ -245,126 +194,138 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
             if sleep_val == orig_sleep:
                 continue
             res = _evaluate_single_combination(
-                user_data, base_risk_pct, orig_exercise, sleep_val, 0, 0, orig_smoker,
-                orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp, orig_smoker
+                user_data, base_risk_pct, orig_exercise, sleep_val, 0, 0,
+                orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp
             )
-            if local_best is None or res["improvement_percent"] > local_best["improvement_percent"]:
+            if local_best is None or res["improvement_percent"] > local_best["improvement_percent"] or (res["improvement_percent"] == local_best["improvement_percent"] and sleep_val > local_best["changes"]["sleep_hours"]):
                 local_best = res
         if local_best:
             local_best["recommendation_type"] = "single_lever"
-            local_best["_orig_exercise"] = orig_exercise
-            local_best["_orig_sleep"] = orig_sleep
-            single_lever_candidates.append(local_best)
-            
+            local_best["category"] = "sleep"
+            single_lever_dict["sleep"] = local_best
+
     # (4) 혈압관리만 변화
     local_best = None
     for sbp_chg in sbp_change_options:
         if sbp_chg == 0:
             continue
         res = _evaluate_single_combination(
-            user_data, base_risk_pct, orig_exercise, orig_sleep, 0, sbp_chg, orig_smoker,
-            orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp, orig_smoker
+            user_data, base_risk_pct, orig_exercise, orig_sleep, 0, sbp_chg,
+            orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp
         )
-        if local_best is None or res["improvement_percent"] > local_best["improvement_percent"]:
+        if local_best is None or res["improvement_percent"] > local_best["improvement_percent"] or (res["improvement_percent"] == local_best["improvement_percent"] and sbp_chg < local_best["changes"]["systolic_bp_change"]):
             local_best = res
     if local_best:
         local_best["recommendation_type"] = "single_lever"
-        local_best["_orig_exercise"] = orig_exercise
-        local_best["_orig_sleep"] = orig_sleep
-        single_lever_candidates.append(local_best)
+        local_best["category"] = "sbp"
+        single_lever_dict["sbp"] = local_best
 
-    # (5) 금연만 변화 (사용자가 흡연자인 경우)
-    if orig_smoker:
-        res_quit = _evaluate_single_combination(
-            user_data, base_risk_pct, orig_exercise, orig_sleep, 0, 0, False,
-            orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp, orig_smoker
-        )
-        res_quit["recommendation_type"] = "single_lever"
-        res_quit["_orig_exercise"] = orig_exercise
-        res_quit["_orig_sleep"] = orig_sleep
-        single_lever_candidates.append(res_quit)
-        
-    # 단일 레버 후보군 정렬 (개선율 내림차순)
-    single_lever_candidates.sort(key=lambda x: x["improvement_percent"], reverse=True)
+    def _get_active_categories(ch):
+        cats = set()
+        if ch.get("weight_change_kg", 0) != 0:
+            cats.add("weight")
+        if ch.get("systolic_bp_change", 0) != 0:
+            cats.add("sbp")
+        if ch.get("exercise_per_week") != orig_exercise:
+            cats.add("exercise")
+        if ch.get("sleep_hours") != orig_sleep:
+            cats.add("sleep")
+        return cats
+
+    # --- 2. 전체 조합(복합 포함) 탐색 및 정렬 ---
+    all_positive_candidates = []
+    all_candidates_raw = []
     
-    # --- 2단계: 복합 개선안(Combined) 계산 ---
-    all_combined_candidates = []
-    positive_combined_candidates = []
-    
-    for exec_val, sleep_val, weight_chg, sbp_chg, smoker_val in itertools.product(
-        exercise_options, sleep_options, weight_change_options, sbp_change_options, smoker_options
+    for exec_val, sleep_val, weight_chg, sbp_chg in itertools.product(
+        exercise_options, sleep_options, weight_change_options, sbp_change_options
     ):
-        # 모든 변수가 원래 값인 케이스 제외
-        if (exec_val == orig_exercise and sleep_val == orig_sleep and 
-            weight_chg == 0 and sbp_chg == 0 and smoker_val == orig_smoker):
+        if (exec_val == orig_exercise and sleep_val == orig_sleep and weight_chg == 0 and sbp_chg == 0):
             continue
-            
         res = _evaluate_single_combination(
-            user_data, base_risk_pct, exec_val, sleep_val, weight_chg, sbp_chg, smoker_val,
-            orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp, orig_smoker
+            user_data, base_risk_pct, exec_val, sleep_val, weight_chg, sbp_chg,
+            orig_exercise, orig_sleep, orig_tc, orig_hdl, orig_sbp
         )
-        res["recommendation_type"] = "combined"
-        res["_orig_exercise"] = orig_exercise
-        res["_orig_sleep"] = orig_sleep
-        all_combined_candidates.append(res)
+        # 단일 레버 여부 분류
+        changed_count = sum([
+            exec_val != orig_exercise,
+            sleep_val != orig_sleep,
+            weight_chg != 0,
+            sbp_chg != 0
+        ])
+        res["recommendation_type"] = "single_lever" if changed_count == 1 else "combined"
+        all_candidates_raw.append(res)
         if res["improvement_percent"] > 0:
-            positive_combined_candidates.append(res)
+            all_positive_candidates.append(res)
             
-    # 정렬
-    all_combined_candidates.sort(key=lambda x: x["improvement_percent"], reverse=True)
-    positive_combined_candidates.sort(key=lambda x: x["improvement_percent"], reverse=True)
-    
-    # --- 3단계: 다양성 판단 규칙 기반 Top 3 추출 (단일 레버 2개 + 복합 개선 1개) ---
-    positive_single_levers = [c for c in single_lever_candidates if c["improvement_percent"] > 0]
-    
-    final_recommendations = []
-    
-    def _is_similar_to_any(candidate, selected_list):
-        for s in selected_list:
-            if _are_recommendations_similar(candidate, s):
-                return True
-        return False
+    # 개선율 우대 + 동일/유사 개선 구간 내 레버 개수가 적은(간결한) 조합 우선 정렬!
+    all_positive_candidates.sort(
+        key=lambda x: (
+            round(x["improvement_percent"], 0),
+            -len(_get_active_categories(x["changes"])),
+            x["improvement_percent"]
+        ),
+        reverse=True
+    )
+    all_candidates_raw.sort(
+        key=lambda x: (
+            round(x["improvement_percent"], 0),
+            -len(_get_active_categories(x["changes"])),
+            x["improvement_percent"]
+        ),
+        reverse=True
+    )
 
-    # (1) 단일 레버 상위 2개 선정 (서로 다른 독립 전략 2개 선택)
-    for cand in positive_single_levers:
-        if len([c for c in final_recommendations if c.get("recommendation_type") == "single_lever"]) >= 2:
-            break
-        if not _is_similar_to_any(cand, final_recommendations):
-            final_recommendations.append(cand)
-            
-    # (2) 복합 개선 최적 1개 선정 (단일 레버들과 4개 이상 변수가 겹치지 않고 90% 이상 동일하지 않은 최적 1개)
-    for cand in positive_combined_candidates:
-        if len([c for c in final_recommendations if c.get("recommendation_type") == "combined"]) >= 1:
-            break
-        if not _is_similar_to_any(cand, final_recommendations):
-            final_recommendations.append(cand)
-            
-    # (3) 부족분 보충 (유사도 필터링을 지키며 보충)
-    all_positive = positive_single_levers + positive_combined_candidates
-    all_positive.sort(key=lambda x: x["improvement_percent"], reverse=True)
+    # --- 3. Top1, Top2, Top3 단계별 추출 로직 ---
+    final_recommendations = []
+    used_categories = set()
+    used_changes = []
+
+    def _is_duplicate_change(ch, used_list):
+        return ch in used_list
+
+    # [Top 1]: 전체 조합 중 가장 위험도 감소가 큰 간결한 최적 조합
+    candidate_pool_for_top1 = all_positive_candidates if all_positive_candidates else all_candidates_raw
+    if candidate_pool_for_top1:
+        top1 = candidate_pool_for_top1[0]
+        final_recommendations.append(top1)
+        used_changes.append(top1["changes"])
+        used_categories.update(_get_active_categories(top1["changes"]))
+
+    # [Top 2]: Top1에서 사용하지 않은 남은 레버 단일 추천 중 가장 효과가 높은 것
+    rem_cats_top2 = [c for c in CATEGORIES if c not in used_categories]
+    top2_candidates = [single_lever_dict[c] for c in rem_cats_top2 if c in single_lever_dict and not _is_duplicate_change(single_lever_dict[c]["changes"], used_changes)]
+    top2_candidates.sort(key=lambda x: x["improvement_percent"], reverse=True)
     
-    for cand in all_positive:
+    if top2_candidates:
+        top2 = top2_candidates[0]
+        final_recommendations.append(top2)
+        used_changes.append(top2["changes"])
+        used_categories.update(_get_active_categories(top2["changes"]))
+
+    # [Top 3]: Top1과 Top2에서 사용하지 않은 남은 레버 단일 추천 중 가장 효과가 높은 것
+    rem_cats_top3 = [c for c in CATEGORIES if c not in used_categories]
+    top3_candidates = [single_lever_dict[c] for c in rem_cats_top3 if c in single_lever_dict and not _is_duplicate_change(single_lever_dict[c]["changes"], used_changes)]
+    top3_candidates.sort(key=lambda x: x["improvement_percent"], reverse=True)
+    
+    if top3_candidates:
+        top3 = top3_candidates[0]
+        final_recommendations.append(top3)
+        used_changes.append(top3["changes"])
+        used_categories.update(_get_active_categories(top3["changes"]))
+
+    # --- 4. 부족분 보충 (미사용 레버 단일 추천이 모자라 3개가 안 채워진 경우 폴백) ---
+    search_pool = all_positive_candidates + all_candidates_raw
+    for cand in search_pool:
         if len(final_recommendations) >= top_n:
             break
-        if not _is_similar_to_any(cand, final_recommendations):
+        if not _is_duplicate_change(cand["changes"], used_changes):
+            if cand["improvement_percent"] <= 0:
+                cand["note"] = "이미 위험 요인이 높아 추가 개선 효과가 제한적일 수 있습니다"
             final_recommendations.append(cand)
-            
-    # --- 4단계: 극단적 고위험군 안전장치 ---
-    if len(final_recommendations) < top_n:
-        all_candidates = single_lever_candidates + all_combined_candidates
-        all_candidates.sort(key=lambda x: x["improvement_percent"], reverse=True)
-        
-        for cand in all_candidates:
-            if len(final_recommendations) >= top_n:
-                break
-            if not _is_similar_to_any(cand, final_recommendations):
-                if cand["improvement_percent"] <= 0:
-                    cand["note"] = "이미 위험 요인이 높아 추가 개선 효과가 제한적일 수 있습니다"
-                final_recommendations.append(cand)
-                
-    # 반환 객체에서 임시 키 제거
+            used_changes.append(cand["changes"])
+
+    # 내부 정리용 임시 category 키 제거
     for r in final_recommendations:
-        r.pop("_orig_exercise", None)
-        r.pop("_orig_sleep", None)
-        
+        r.pop("category", None)
+
     return final_recommendations[:top_n]

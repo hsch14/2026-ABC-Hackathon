@@ -32,33 +32,27 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# UI 개선: 변경된 항목만 추출하여 사용자 친화적 불렛 문자열로 가공하는 헬퍼 함수
+# UI 개선: 원래 값과 차이가 있는 '실천해야 할 변화 항목만' 추출하여 불렛 문자열로 가공하는 헬퍼 함수
 def format_lifestyle_changes(changes: dict, user_data: dict) -> str:
     """
     원래 값과 차이가 있는 '실천해야 할 변화 항목만' 추출하여 불렛 문자열로 변환합니다.
+    (smoker는 환자 입력 고정 변수이므로 추천 불렛 목록에서 완전 제외)
     """
-    # UI 개선: 변화(Change)가 존재하는 항목만 정제 노출
     items = []
     
-    # 1. 금연 (현재 흡연자가 비흡연으로 변경된 경우만)
-    orig_smoker = bool(user_data.get("smoker", False))
-    new_smoker = bool(changes.get("smoker", orig_smoker))
-    if orig_smoker and not new_smoker:
-        items.append("• <b>금연</b>")
-        
-    # 2. 체중 감량/증가 (변화량이 0이 아닌 경우만)
+    # 1. 체중 감량/증가 (변화량이 0이 아닌 경우만)
     w_chg = changes.get("weight_change_kg", 0)
     if w_chg < 0:
         items.append(f"• 체중 <b>{abs(w_chg)}kg 감량</b>")
     elif w_chg > 0:
         items.append(f"• 체중 <b>{w_chg}kg 증가</b>")
         
-    # 3. 수축기 혈압 감소 (변화량이 0이 아닌 경우만)
+    # 2. 수축기 혈압 감소 (변화량이 0이 아닌 경우만)
     sbp_chg = changes.get("systolic_bp_change", 0)
     if sbp_chg < 0:
         items.append(f"• 수축기 혈압 <b>{abs(sbp_chg)}mmHg 감소</b>")
         
-    # 4. 운동 횟수 (원래 운동 횟수와 다른 경우만)
+    # 3. 운동 횟수 (원래 운동 횟수와 다른 경우만)
     exec_val = changes.get("exercise_per_week")
     orig_exec = user_data.get("exercise_per_week")
     if exec_val is not None and exec_val != orig_exec:
@@ -67,7 +61,7 @@ def format_lifestyle_changes(changes: dict, user_data: dict) -> str:
         else:
             items.append(f"• 운동 <b>주 {exec_val}회로 조정</b>")
             
-    # 5. 수면 시간 (원래 수면 시간과 다른 경우만)
+    # 4. 수면 시간 (원래 수면 시간과 다른 경우만)
     sleep_val = changes.get("sleep_hours")
     orig_sleep = user_data.get("sleep_hours")
     if sleep_val is not None and sleep_val != orig_sleep:

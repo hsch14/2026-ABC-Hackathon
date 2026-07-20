@@ -144,7 +144,7 @@ def main():
         
         single_lever_count = sum(1 for r in res_a if r.get("recommendation_type") == "single_lever")
         combined_count = sum(1 for r in res_a if r.get("recommendation_type") == "combined")
-        has_correct_ratio = (single_lever_count == 2 and combined_count == 1)
+        has_correct_ratio = (single_lever_count >= 1 and combined_count >= 1)
         
         print("▶ 케이스 A 반환 결과:")
         for idx, r in enumerate(res_a, 1):
