@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Health Simulation Module using Counterfactual Explanation
 Analyzes how changes in lifestyle habits (exercise, sleep, weight) and blood pressure
@@ -109,6 +109,16 @@ def _evaluate_single_combination(
         "improvement_percent": round(improvement, 1),
         "improvement_summary": summary_str
     }
+
+def _category_overlap_score(new_categories: set, used_categories_list: list) -> int:
+    """
+    new_categories와 이미 사용된 카테고리 집합들 중 가장 많이 겹치는 
+    정도를 반환한다. 0이면 완전히 다름(가장 좋음), 값이 클수록 
+    겹치는 카테고리가 많음(다양성 낮음).
+    """
+    if not used_categories_list:
+        return 0
+    return min(len(new_categories & used) for used in used_categories_list)
 
 def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: str = None) -> list:
     """
@@ -314,15 +324,35 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
         used_categories.update(_get_active_categories(top3["changes"]))
 
     # --- 4. 부족분 보충 (미사용 레버 단일 추천이 모자라 3개가 안 채워진 경우 폴백) ---
-    search_pool = all_positive_candidates + all_candidates_raw
-    for cand in search_pool:
-        if len(final_recommendations) >= top_n:
-            break
-        if not _is_duplicate_change(cand["changes"], used_changes):
-            if cand["improvement_percent"] <= 0:
-                cand["note"] = "이미 위험 요인이 높아 추가 개선 효과가 제한적일 수 있습니다"
-            final_recommendations.append(cand)
-            used_changes.append(cand["changes"])
+    if len(final_recommendations) < top_n:
+        search_pool = all_positive_candidates + all_candidates_raw
+        
+        while len(final_recommendations) < top_n:
+            used_cats_list = [_get_active_categories(r["changes"]) for r in final_recommendations]
+            
+            unselected_candidates = []
+            for cand in search_pool:
+                if not _is_duplicate_change(cand["changes"], used_changes):
+                    cand_cats = _get_active_categories(cand["changes"])
+                    overlap_score = _category_overlap_score(cand_cats, used_cats_list)
+                    unselected_candidates.append((overlap_score, cand))
+                    
+            if not unselected_candidates:
+                break
+                
+            # (overlap_score 오름차순, improvement_percent 내림차순) 정렬
+            unselected_candidates.sort(key=lambda x: (x[0], -x[1]["improvement_percent"]))
+            
+            best_overlap, best_cand = unselected_candidates[0]
+            
+            if best_overlap > 0:
+                best_cand["note"] = "유사한 개선 전략이 반복되어 표시됩니다. 더 다양한 대안을 찾지 못했습니다"
+            elif best_cand["improvement_percent"] <= 0:
+                best_cand["note"] = "이미 위험 요인이 높아 추가 개선 효과가 제한적일 수 있습니다"
+                
+            final_recommendations.append(best_cand)
+            used_changes.append(best_cand["changes"])
+            used_categories.update(_get_active_categories(best_cand["changes"]))
 
     # 내부 정리용 임시 category 키 제거
     for r in final_recommendations:
