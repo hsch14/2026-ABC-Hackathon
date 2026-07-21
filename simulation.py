@@ -267,23 +267,9 @@ def generate_counterfactuals(user_data: dict, top_n: int = 3, user_constraint: s
         if res["improvement_percent"] > 0:
             all_positive_candidates.append(res)
             
-    # 개선율 우대 + 동일/유사 개선 구간 내 레버 개수가 적은(간결한) 조합 우선 정렬!
-    all_positive_candidates.sort(
-        key=lambda x: (
-            round(x["improvement_percent"], 0),
-            -len(_get_active_categories(x["changes"])),
-            x["improvement_percent"]
-        ),
-        reverse=True
-    )
-    all_candidates_raw.sort(
-        key=lambda x: (
-            round(x["improvement_percent"], 0),
-            -len(_get_active_categories(x["changes"])),
-            x["improvement_percent"]
-        ),
-        reverse=True
-    )
+    # 개선율(improvement_percent)이 가장 큰 전체 최적 조합을 Top1 1순위로 정렬!
+    all_positive_candidates.sort(key=lambda x: x["improvement_percent"], reverse=True)
+    all_candidates_raw.sort(key=lambda x: x["improvement_percent"], reverse=True)
 
     # --- 3. Top1, Top2, Top3 단계별 추출 로직 ---
     final_recommendations = []
