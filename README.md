@@ -1,6 +1,6 @@
 ﻿# ❤️ Health Twin AI - 심혈관 건강 Twin 시뮬레이터 & AI 대시보드
 
-> **Counterfactual Explanation** 기반의 10년 심혈관 질환(CVD) 위험도 시뮬레이션 및 Llama-3.3 지능형 AI 맞춤 리포트·챗봇 대시보드 시스템입니다.
+> Counterfactual Explanation 기반의 10년 심혈관 질환(CVD) 위험도 시뮬레이션 및 Llama-3.3 지능형 AI 맞춤 리포트·챗봇 대시보드 시스템입니다.
 
 ---
 
