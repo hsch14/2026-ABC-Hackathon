@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Health Twin AI - Streamlit Dashboard
 Provides a visually stunning, responsive interface for 10-year CVD Risk evaluation,
@@ -90,7 +90,12 @@ api_key_input = st.sidebar.text_input(
 )
 if api_key_input:
     sanitized_key = "".join([c for c in api_key_input.strip() if ord(c) < 128])
-    os.environ["GROQ_API_KEY"] = sanitized_key
+    if sanitized_key.startswith("gsk_"):
+        os.environ["GROQ_API_KEY"] = sanitized_key
+    else:
+        os.environ.pop("GROQ_API_KEY", None)
+else:
+    os.environ.pop("GROQ_API_KEY", None)
 
 # 2. 사이드바 - 사용자 건강 정보 직접 입력 폼 (# UI 개선: 단위 명확화)
 st.sidebar.markdown("### 🧬 1. 기본 임상 정보 입력")
@@ -209,11 +214,22 @@ base_risk = base_results["cardiovascular_10y"]
 
 sim_recommendations = generate_counterfactuals(patient_data, top_n=3, user_constraint=selected_constraint)
 
-explanation_data = generate_natural_explanation(
+# Streamlit Caching 적용: 동일 입력에 대한 중복 API 호출을 방지하여 HTTP 429 Rate Limit을 원천 방지합니다.
+@st.cache_data(ttl=600, show_spinner=False)
+def get_cached_explanation(user_data, current_result, counterfactual_results, user_constraint, api_key_hash):
+    return generate_natural_explanation(
+        user_data=user_data,
+        current_result=current_result,
+        counterfactual_results=counterfactual_results,
+        user_constraint=user_constraint
+    )
+
+explanation_data = get_cached_explanation(
     user_data=patient_data,
     current_result=base_risk,
     counterfactual_results=sim_recommendations,
-    user_constraint=selected_constraint
+    user_constraint=selected_constraint,
+    api_key_hash=os.environ.get("GROQ_API_KEY", "")
 )
 
 # ----------------- 탭 구성 및 메인 UI 렌더링 -----------------
@@ -366,10 +382,10 @@ with tab3:
             raw_key = os.environ.get("GROQ_API_KEY", "").strip()
             sanitized_api_key = "".join([c for c in raw_key if ord(c) < 128])
             
-            if not sanitized_api_key:
+            if not sanitized_api_key or not sanitized_api_key.startswith("gsk_"):
                 fallback_reply = (
-                    "⚠️ 현재 **Groq API Key가 등록되지 않은 상태**여서 실시간 AI 건강 상담 대화 기능이 대기 상태입니다.\n\n"
-                    "대시보드 왼쪽 사이드바 상단에 **'Groq API Key 등록'** 인풋창에 Key를 입력해 주시면 "
+                    "⚠️ 현재 **Groq API Key가 등록되지 않았거나 유효하지 않은 상태**여서 실시간 AI 건강 상담 대화 기능이 대기 상태입니다.\n\n"
+                    "대시보드 왼쪽 사이드바 상단에 **'Groq API Key 등록'** 인풋창에 유효한 Key(`gsk_...`)를 입력해 주시면 "
                     "즉시 고객님의 실시간 임상 정보를 인지한 지능형 Llama-3.3 AI 챗봇 대화가 가동됩니다."
                 )
                 st.markdown(fallback_reply)

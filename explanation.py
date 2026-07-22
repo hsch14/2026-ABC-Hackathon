@@ -191,18 +191,20 @@ def _call_groq(messages: list) -> tuple:
         tuple: (response_text, latency_ms, retry_count, error_msg)
     """
     start_time = time.perf_counter()
-    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    raw_api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    api_key = "".join([c for c in raw_api_key if ord(c) < 128])
     
-    # 1. API Key 사전 검사
+    # 1. API Key 사전 검사 (비어있는지 여부만 검사)
     if not api_key:
-        logger.error("GROQ_API_KEY가 환경변수에 존재하지 않거나 비어 있습니다.")
+        logger.info("GROQ_API_KEY가 등록되지 않았으므로 Fallback 템플릿 모드로 동작합니다.")
         latency = int((time.perf_counter() - start_time) * 1000)
         return "", latency, 0, "APIKeyMissing"
         
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
     payload = {
@@ -229,7 +231,8 @@ def _call_groq(messages: list) -> tuple:
                 response_text = res_json["choices"][0]["message"]["content"]
                 
             # 성공 시 루프 탈출
-            logger.info("Groq API 호출 성공")
+            logger.info(f"Groq LLM ({MODEL_NAME}) API 호출 성공! Raw JSON Response 수신 완료")
+            logger.debug(f"Raw JSON output: {response_text}")
             error_msg = None
             break
             
@@ -240,7 +243,7 @@ def _call_groq(messages: list) -> tuple:
                 
             # 마지막 시도였거나 재시도 불가능한 오류인 경우 루프 탈출
             if attempt == 1 or not _is_retryable_exception(e):
-                logger.error(f"Groq API 호출 영구 실패: {error_msg}")
+                logger.warning(f"Groq API 호출 불통 (사유: {error_msg}). Fallback 모드로 전환됩니다.")
                 break
                 
             retry_count += 1
@@ -549,9 +552,10 @@ def generate_natural_explanation(
     explanation_body = None
     
     # 1. API Key 사전 검사
-    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    raw_api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    api_key = "".join([c for c in raw_api_key if ord(c) < 128])
     if not api_key:
-        logger.error("API Key 사전 검사 실패: GROQ_API_KEY 환경변수가 존재하지 않습니다. 즉시 Fallback으로 복구합니다.")
+        logger.info("GROQ_API_KEY 미등록으로 인해 안전한 Fallback 모드로 가동합니다.")
         generated_by = "fallback"
         active_model = FALLBACK_MODEL_NAME
         is_fallback = True
@@ -581,7 +585,7 @@ def generate_natural_explanation(
         active_model = FALLBACK_MODEL_NAME
         is_fallback = True
         error_code = api_error
-        logger.error(f"API 오류로 인한 Fallback 전환. 에러 코드: {error_code}")
+        logger.info(f"Groq API 미응답으로 Fallback 모드로 전환되었습니다 (사유: {error_code}).")
         explanation_body = _generate_fallback_explanation(
             user_data, current_result, counterfactual_results, user_constraint
         )
