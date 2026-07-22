@@ -1,4 +1,4 @@
-﻿# ❤️ Health Twin AI - 심혈관 건강 Twin 시뮬레이터 & AI 대시보드
+# ❤️ Health Twin AI - 심혈관 건강 Twin 시뮬레이터 & AI 대시보드
 
 > Counterfactual Explanation 기반의 10년 심혈관 질환(CVD) 위험도 시뮬레이션 및 Llama-3.3 지능형 AI 맞춤 리포트·챗봇 대시보드 시스템입니다.
 
@@ -14,7 +14,7 @@
 
 ### 📊 1) Framingham Risk Score 연산 엔진 (`framingham.py`)
 - **원논문 수식 충실 반영**: D'Agostino et al. (2008) 원논문 코호트 연령 기준인 **`30 <= age <= 74`** 범위를 엄격하게 준수합니다.
-- **다빈치 위험도 수치화**: 포인트(Points) 및 10년 CVD 위험 비율(%) 계산과 함께 위험 등급(저위험군, 중위험군, 고위험군)을 평가합니다.
+- **정밀 위험도 수치화**: 포인트(Points) 및 10년 CVD 위험 비율(%) 계산과 함께 위험 등급(저위험군, 중위험군, 고위험군)을 평가합니다.
 
 ### 🌟 2) Counterfactual 예방 시나리오 탐색 엔진 (`simulation.py`)
 - **다양성(Diversity) 기반 Top 3 대안 제시**: 체중 숫자가 미세하게 겹치는 무의미한 중복 추천을 배제하고, **독립적인 행동 전략 카테고리**를 보장합니다.
@@ -53,8 +53,8 @@ ABC-Hackathon-Free Contest/
 ## 🚀 4. 설치 및 실행 가이드 (Getting Started)
 
 ### 요구 사항 (Prerequisites)
-- **Python**: 3.10 이상
-- **패키지**: Streamlit, Requests 등
+- **Python**: 3.11 이상
+- **패키지**: streamlit, pytest (상세 버전은 requirements.txt 참고)
 
 ### 1) 프로젝트 저장소 복제 (Clone)
 ```bash
@@ -62,11 +62,16 @@ git clone https://github.com/hsch14/ABC-Hackathon-Free-Contest.git
 cd ABC-Hackathon-Free-Contest
 ```
 
-### 2) 가상환경 구축 및 패키지 설치 (uv 추천)
+### 2) 패키지 설치
+```bash
+pip install -r requirements.txt
+```
+
+*(uv를 사용한 가상환경 구축 시 아래와 같이 간편하게 설치할 수 있습니다)*
 ```bash
 uv venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
-uv pip install streamlit
+uv pip install -r requirements.txt
 ```
 
 ### 3) 대시보드 실행 (Run Streamlit App)
@@ -95,4 +100,4 @@ streamlit run dashboard.py
 ## 📄 6. 라이선스 및 출처 (License & Citation)
 
 - **Framingham CVD Risk Score**: D'Agostino RB Sr, et al. *General Cardiovascular Risk Profile for Use in Primary Care: The Framingham Heart Study*. Circulation. 2008;117(6):743-753.
-- **임상 출처**: AHA/ACC 2025 Hypertension Guidelines, Neter et al. (*Hypertension*, 2003) 메타분석 등.
+- **임상 출처**: 체중-혈압 관계는 Neter et al. (Hypertension, 2003) 메타분석을, 운동-HDL/혈압 관계는 미국심장협회(AHA)의 신체활동 권고안을 참고하였습니다. 일부 계수는 정량적 근거가 제한적이어 일반적 경향에 기반한 근사치를 사용하였습니다.
