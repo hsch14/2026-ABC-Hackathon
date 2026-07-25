@@ -13,7 +13,7 @@ Health Twin AI는 사용자의 임상 데이터(나이, 성별, 콜레스테롤,
 ## ✨ 2. 핵심 기능 (Key Features)
 
 ### 📊 1) Framingham Risk Score 연산 엔진 (`framingham.py`)
-- 원논문 수식 충실 반영: D'Agostino et al. (2008) 원논문 코호트 연령 기준인 **`30 <= age <= 74`** 범위를 엄격하게 준수합니다.
+- 원논문 수식 충실 반영: D'Agostino et al. (2008) 원논문 코호트 연령 기준인 '30 <= age <= 74`범위를 엄격하게 준수합니다.
 - **정밀 위험도 수치화**: 포인트(Points) 및 10년 CVD 위험 비율(%) 계산과 함께 위험 등급(저위험군, 중위험군, 고위험군)을 평가합니다.
 
 ### 🌟 2) Counterfactual 예방 시나리오 탐색 엔진 (`simulation.py`)
