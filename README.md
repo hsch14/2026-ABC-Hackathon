@@ -18,9 +18,9 @@ Health Twin AI는 사용자의 임상 데이터(나이, 성별, 콜레스테롤,
 
 ### 🌟 2) Counterfactual 예방 시나리오 탐색 엔진 (`simulation.py`)
 - **다양성(Diversity) 기반 Top 3 대안 제시**: 체중 숫자가 미세하게 겹치는 무의미한 중복 추천을 배제하고, 독립적인 행동 전략 카테고리를 보장합니다.
-  - **Top 1**: 위험도 감축 효과가 가장 높은 최적 종합 개선안 (Combined)
-  - **Top 2**: Top 1에서 사용하지 않은 남은 레버(운동/수면/체중/혈압)의 최적 단일 개선안 (Single Lever)
-  - **Top 3**: Top 1과 Top 2에서 사용하지 않은 차순위 남은 레버의 단일 개선안 (Single Lever)
+  - Top 1: 위험도 감축 효과가 가장 높은 최적 종합 개선안 (Combined)
+  - Top 2: Top 1에서 사용하지 않은 남은 레버(운동/수면/체중/혈압)의 최적 단일 개선안 (Single Lever)
+  - Top 3: Top 1과 Top 2에서 사용하지 않은 차순위 남은 레버의 단일 개선안 (Single Lever)
 - **실천 가능한 변화(Changes) 중심 표시**: 유지되는 기존 습관은 제외하고, 사용자가 **직접 실천해야 하는 변화 수치(Delta)**만 깔끔하게 시각화합니다.
 - **제약 조건(Constraints) 연동**: `운동이 어려움(NO_EXERCISE)`, `야근이 많음(NO_TIME_FOR_SLEEP)`, `식단 조절이 어려움(DIET_ONLY)` 등 개인의 생활 제약에 맞춘 우회 대안을 자동 산출합니다.
 
