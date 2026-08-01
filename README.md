@@ -99,5 +99,5 @@ streamlit run dashboard.py
 
 ## 📄 6. 라이선스 및 출처 (License & Citation)
 
-- **Framingham CVD Risk Score**: D'Agostino RB Sr, et al. *General Cardiovascular Risk Profile for Use in Primary Care: The Framingham Heart Study*. Circulation. 2008;117(6):743-753.
+- Framingham CVD Risk Score: D'Agostino RB Sr, et al. *General Cardiovascular Risk Profile for Use in Primary Care: The Framingham Heart Study*. Circulation. 2008;117(6):743-753.
 - 임상 출처: 체중-혈압 관계는 Neter et al. (Hypertension, 2003) 메타분석을, 운동-HDL/혈압 관계는 미국심장협회(AHA)의 신체활동 권고안을 참고하였습니다. 일부 계수는 정량적 근거가 제한적이어 일반적 경향에 기반한 근사치를 사용하였습니다.
