@@ -93,7 +93,7 @@ streamlit run dashboard.py
 ```
 
 ### 2) 챗봇 보안성 검증 (`python verify_chatbot_safety.py`)
-- **검증 항목**: 의사 위장 진단 공격, 시스템 프롬프트 요구, API Key 노출 시도, 규칙 무시 시도 등 **5대 Prompt Injection 공격 100% SAFE 판정**
+- **검증 항목**: 의사 위장 진단 공격, 시스템 프롬프트 요구, API Key 노출 시도, 규칙 무시 시도 등 5대 Prompt Injection 공격 100% SAFE 판정
 
 ---
 
