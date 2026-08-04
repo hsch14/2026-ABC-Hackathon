@@ -85,7 +85,7 @@ streamlit run dashboard.py
 ## 🧪 5. 검증 및 테스트 결과 (Validation & QA)
 
 ### 1) 통합 시나리오 검증 (`python verify_changes.py`)
-- **검증 항목**: 나이 30~74세 예외 제약, 대시보드 UI 인자, Constraint 탐색 범위, Top 3 다양성 로직 등 12개 검증 항목 전원 100% PASS
+- 검증 항목: 나이 30~74세 예외 제약, 대시보드 UI 인자, Constraint 탐색 범위, Top 3 다양성 로직 등 12개 검증 항목 전원 100% PASS
 ```text
 ============================================================
    [최종 요약] 전체 12개 항목 중 12개 PASS, 0개 FAIL
