@@ -53,8 +53,8 @@ ABC-Hackathon-Free Contest/
 ## 🚀 4. 설치 및 실행 가이드 (Getting Started)
 
 ### 요구 사항 (Prerequisites)
-- **Python**: 3.11 이상
-- **패키지**: streamlit, pytest (상세 버전은 requirements.txt 참고)
+- Python: 3.11 이상
+- 패키지: streamlit, pytest (상세 버전은 requirements.txt 참고)
 
 ### 1) 프로젝트 저장소 복제 (Clone)
 ```bash
