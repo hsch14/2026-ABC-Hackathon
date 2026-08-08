@@ -67,7 +67,7 @@ cd ABC-Hackathon-Free-Contest
 pip install -r requirements.txt
 ```
 
-*(uv를 사용한 가상환경 구축 시 아래와 같이 간편하게 설치할 수 있습니다)*
+*(uv를 사용한 가상환경 구축 시 아래와 같이 간편하게 설치할 수 있습니다.)*
 ```bash
 uv venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
