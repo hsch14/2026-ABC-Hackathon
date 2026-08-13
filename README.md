@@ -71,7 +71,7 @@ pip install -r requirements.txt
 ```bash
 uv venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
-uv pip install -r requirements.txt
+uv pip install -r requirements.txt 
 ```
 
 ### 3) 대시보드 실행 (Run Streamlit App)
